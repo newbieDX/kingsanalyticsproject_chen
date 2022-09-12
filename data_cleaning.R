@@ -84,29 +84,42 @@ for (player in name_unique){
 success_player_train <- subset(success_player_train, success_player_train$league != "NBA")
 
 df_euro_train <- df_euro_train[c(54, 3:53)]
-df_euro_train$is_nba <- 0
 
-df_euro_train$name_bool=FALSE
-df_euro_train <- df_euro_train  %>% mutate(name_bool=ifelse(df_euro_train$name %in% unique(success_player_train$name),1,0))
+success_player_train$is_nba <- 1 
 
-df_euro_train$test=FALSE
-update_cri=df_euro_train$test
+df77 <- left_join(df_euro_train, success_player_train[c(1, 3, 5, 53)], by = c("name","season", "league"))
 
-for (player in unique(df_euro_train$name)){
+df77$is_nba[is.na(df77$is_nba)] <-  0
 
-  sub_df<-df_euro_train %>% filter(name==player)
-  name_bool_vec<-sub_df %>% `$`(name_bool)
-  
-  if ((0 %in% name_bool_vec) == FALSE){
+df_train <- df77
 
-    cri1=success_player_train %>% filter(name==player) %>% `$`(season)
-    cri2<-((df_euro_train$season %in% unique(cri1)) & (df_euro_train$name==player)) 
-    update_cri=update_cri | cri2
-    #print(sum(update_cri))
-  }
-}
+# Replace NAs with 0
 
-df_euro_train <- df_euro_train  %>% mutate(is_nba=ifelse(update_cri,1,0))
+df_train[is.na(df_train)] <- 0
 
-df_euro_train <- df_euro_train[-c(54:56)]
+# Another way to get the training set
+
+# df_euro_train$name_bool=FALSE
+# df_euro_train <- df_euro_train  %>% mutate(name_bool=ifelse(df_euro_train$name %in% unique(success_player_train$name),1,0))
+# 
+# df_euro_train$test=FALSE
+# update_cri=df_euro_train$test
+# 
+# for (player in unique(df_euro_train$name)){
+# 
+#   sub_df<-df_euro_train %>% filter(name==player)
+#   name_bool_vec<-sub_df %>% `$`(name_bool)
+#   
+#   if ((0 %in% name_bool_vec) == FALSE){
+# 
+#     cri1=success_player_train %>% filter(name==player) %>% `$`(season)
+#     cri2<-((df_euro_train$season %in% unique(cri1)) & (df_euro_train$name==player)) 
+#     update_cri=update_cri | cri2
+#     #print(sum(update_cri))
+#   }
+# }
+# 
+# df_euro_train <- df_euro_train  %>% mutate(is_nba=ifelse(update_cri,1,0))
+
+# df_euro_train <- df_euro_train[-c(54:56)]
 
