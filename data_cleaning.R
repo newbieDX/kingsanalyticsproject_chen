@@ -3,6 +3,7 @@ library(dplyr)
 library(Hmisc)
 library(stringr)
 library(magrittr)
+library(eeptools)
 # Read csv files
 
 inter_player <- read.csv(file = "C:/Users/Derek Chu/Desktop/application_project_chen/csv_files/international_box_player_season.csv") %>% as.data.frame()
@@ -96,6 +97,17 @@ df_train <- df77
 # Replace NAs with 0
 
 df_train[is.na(df_train)] <- 0
+df_test <- df_euro_test[c(54, 3:53)]
+
+df_train$is_nba <- as.factor(df_train$is_nba)
+
+df_train <- df_train %>% mutate(age = age_calc(as.Date(birth_date),as.Date(as.character(df_train$season), format = "%Y"), units = "years")) 
+df_train$age <- round(df_train$age, digits = 0)
+df_train <- df_train[c(1, 54, 3, 5, 7:53)]
+
+df_test <- df_test %>% mutate(age = age_calc(as.Date(birth_date),as.Date(as.character(df_test$season), format = "%Y"), units = "years")) 
+df_test$age <- round(df_test$age, digits = 0)
+df_test <- df_test[c(1, 53, 3, 5, 7:52)]
 
 # Another way to get the training set
 

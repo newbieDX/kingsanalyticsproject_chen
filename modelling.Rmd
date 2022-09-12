@@ -1,0 +1,154 @@
+---
+title: "Kings analytics project"
+author: "Chen(Daniel) Xu"
+output: pdf_document
+date: "2022-09-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, echo = FALSE, message = FALSE)
+pacman::p_load(tidyverse, caret, MASS)
+source("data_cleaning.R")
+```
+
+
+## Abstract:
+
+In this report, I will demonstrate how I process and clean the data to make the data collected from different vendor to be usable together. To find the metrics to predict success for players in the most relevant leagues in Europe and highlight the potential players, I use whether if they made into NBA after playing several seasons in Europe as a criteria and use logistic regression model to make prediction. This report consisted of 4 main parts: Abstract, Introduction, Method and Discussion
+
+## Introduction:
+
+The analytics staff of the Sacramento Kings needs to provide some recommendations of players currently playing outside of the NBA for the GM to target. The staff wants to know which metrics predict success for players in the most relevant leagues in Europe and specifically which players he should highlight for this season.
+
+## Method:
+
+### Data processing and cleaning:
+
+The two main difference between the NBA and European data are: different format of player's name and not uniform number of features.
+
+To deal with the first problem, I used the player_lst dataframe as standard and use first letter capitalized for both first name and last name. Doing so, I can also exclude the players who only played for NBA. To deal with the second problem, I found that the NBA data include three more variables than the European data: Plus_minus, calculated_possessions, plays_used. Because the main purpose is to find the players who can be selected from Europe to NBA, I will mainly focus on the European data. Thus, I just get rid of the three variables above. 
+
+As I mentioned in the Abstract, I planed to use whether the player made into NBA from Europe as the most criteria to determine if the player success or not. Although my assumption is very subjective, the main purpose of this project is to find European players to watch in the new season and see if they can make it to the NBA. So I think my assumption is reasonable.
+
+I took all the players who made into the NBA from the Euroleague during the 2010-2020 season, and further found the season before they entered the NBA and labeled it as 1. My idea was that because they were successful in the previous season, they were discovered by the scouts to get to the NBA. Any other European season, I put a 0 on it, meaning it wasn't successful enough to make it to the NBA. 
+
+I used 2021 season data as the dataframe to be predicted in order to find the players should be highlighted for the coming season.
+
+### Modelling
+
+
+In the modelling part, I mainly used logistic regression model because our outcome would be 0 or 1. 0 represents as unsuccessful and 1 represents as successful.
+
+As another main purpose for this project is to find the metrics that can be used to determine if the player success or not. I tried three different groups of features to fit the model: full features, stepwise selected features and stepwise selected features + mannully added features.
+
+I use AIC as thestandard for my stepwise model.
+
+
+```{r}
+# Split the data into training and test set
+set.seed(123)
+train <- sample(1:dim(df_train)[1], dim(df_train)[1]*0.7)
+test <- -train
+player_train <- df_train[train, ]
+player_test <- df_train[test, ]
+```
+
+
+```{r}
+# Fit the model with all the features
+full.model <- glm(is_nba ~ ., data = player_train[c(2:51)], family = binomial)
+# Check the coefficient
+coef(full.model)
+
+# Perform stepwise variable selection
+step.model <- full.model %>% stepAIC(trace = FALSE)
+# Check the coefficient
+coef(step.model)
+```
+
+
+
+```{r}
+# Compare the full and the stepwise models
+# Prediction accuracy of the full logistic regression model
+# Make predictions
+probabilities <- full.model %>% predict(player_test, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+# Prediction accuracy
+observed.classes <- player_test$is_nba
+mean(predicted.classes == observed.classes)
+```
+
+```{r}
+#Prediction accuracy of the stepwise logistic regression model
+# Make predictions
+probabilities <- predict(step.model, player_test, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+# Prediction accuracy
+observed.classes <- player_test$is_nba
+mean(predicted.classes == observed.classes)
+```
+
+As we can see from the prediction accuracy comparison between two logistic regression model the stepwise regression have selected a reduced number of predictor variables resulting to a final model, which performance was similar to the one of the full model.
+So, the stepwise selection reduced the complexity of the model without compromising its accuracy.
+
+From the coefficient of Stepwise regression logistic model, I can conclude that the metrics predict success for players in the most relevant leagues in Europe are:
+
+```{r}
+knitr::kable(coef(step.model), "pipe")
+```
+
+
+The next step is to use the stepwise regression model to predict which group of players would be success in 2021 season, thus they need to be highlighted.
+
+```{r}
+probabilities_success <- predict(step.model, df_test[2:50], type = "response")
+df_test$P <- probabilities_success
+df_test$is_nba <- ifelse(df_test$P > 0.5, 1, 0)
+# Create a list of players need to be highlighted for this season:
+potential_player_lst <- subset(df_test, df_test$is_nba == 1)
+```
+
+Using the stepwise logistic regression to predict, I can conclude that the players staff should highlight are:
+```{r}
+knitr::kable(potential_player_lst$name, "pipe")
+```
+
+
+## Discussion
+
+As we can see from the metrics we got using stepwise logistic regression model. This model highlighted two points made and two points attempt. In order to be more consistent with the concept and characteristics of modern NBA basketball, I decided to manually add variables related to three-point shooting and inside scoring on the basis of retaining the original variables.
+
+```{r}
+new.model <- glm(is_nba ~ age + season + games + minutes + two_points_made + two_points_attempted + blocked_shot_attempts + assists + turnovers + personal_fouls + possessions + turnover_percentage + three_points_made + three_points_attempted + three_point_attempt_rate, data = player_train[c(2:51)], family = binomial)
+
+#Prediction accuracy of the stepwise logistic regression model
+# Make predictions
+probabilities.new <- predict(new.model, player_test, type = "response")
+predicted.classes.new <- ifelse(probabilities.new > 0.5, 1, 0)
+# Prediction accuracy
+observed.classes.new <- player_test$is_nba
+mean(predicted.classes.new == observed.classes.new)
+
+```
+
+The accuracy remain the same, let's do the prediction:
+
+```{r}
+probabilities_success <- predict(new.model, df_test[2:50], type = "response")
+df_test$P <- probabilities_success
+df_test$is_nba <- ifelse(df_test$P > 0.5, 1, 0)
+# Create a list of players need to be highlighted for this season:
+potential_player_lst <- subset(df_test, df_test$is_nba == 1)
+```
+
+Using the modified stepwise logistic regression to predict, I can conclude that the players staff should highlight are:
+```{r}
+knitr::kable(potential_player_lst$name, "pipe")
+```
+
+Note: Because of the limited time, I can only apply AIC as the criteria to perform stepwise selection. Just using one standard is not comprehensive enough because the successful rate is only around $8\%$. The next step, I will try different criteria such as RSS and apply cross validation to the model in order to get the best group of features. 
+
+Also, feature engineering such as method for dimension reduction, feature selection are also a try able approach.
+
+Last but not least, thank you so much for letting me put my hands on this interesting project. Through this practice, I also found that I still have a lot of shortcomings. I am looking forward to hearing back from you about the most professional advice.
